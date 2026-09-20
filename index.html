@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>机场登机口 3D 仿真 — B12</title>
+<style>
+  :root {
+    --bg: rgba(14, 20, 28, 0.82);
+    --line: rgba(255,255,255,0.12);
+    --txt: #e8eef4;
+    --muted: #93a3b5;
+    --ok: #35d07f; --warn: #ffb020; --err: #ff4d4d; --info: #4aa8ff;
+  }
+  * { box-sizing: border-box; }
+  html,body { margin:0; height:100%; overflow:hidden; font-family: "PingFang SC","Microsoft YaHei",system-ui,sans-serif; background:#0e141c; }
+  #app { position:fixed; inset:0; }
+  .panel {
+    position:absolute; background:var(--bg); color:var(--txt);
+    border:1px solid var(--line); border-radius:12px;
+    backdrop-filter: blur(10px); box-shadow: 0 10px 30px rgba(0,0,0,.35);
+  }
+  #control { left:16px; top:16px; width:300px; padding:16px 16px 14px; max-height: calc(100vh - 32px); overflow:auto; }
+  #control h1 { font-size:15px; margin:0 0 2px; letter-spacing:.5px; }
+  #control .sub { font-size:11px; color:var(--muted); margin-bottom:12px; }
+  .field { margin-bottom:12px; }
+  .field label { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin-bottom:5px; }
+  .field label b { color:var(--txt); font-weight:600; font-variant-numeric: tabular-nums; }
+  select, button {
+    width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--line);
+    background:rgba(255,255,255,.06); color:var(--txt); font-size:13px; outline:none;
+  }
+  select { cursor:pointer; }
+  input[type=range] { width:100%; accent-color:var(--info); }
+  .btns { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:4px; }
+  button { cursor:pointer; transition:.15s; font-weight:600; }
+  button:hover:not(:disabled) { background:rgba(255,255,255,.14); }
+  button:disabled { opacity:.4; cursor:not-allowed; }
+  button.primary { background:linear-gradient(135deg,#2f80ed,#2166c7); border-color:transparent; }
+  button.danger { background:rgba(255,77,77,.16); border-color:rgba(255,77,77,.4); }
+  .views { grid-template-columns:repeat(4,1fr); font-size:11px; padding:7px 0; }
+  .toggle { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); margin-top:6px; }
+  .toggle input { accent-color:var(--info); }
+
+  #status { right:16px; top:16px; width:310px; padding:14px 16px; }
+  .status-head { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .lamp { width:12px; height:12px; border-radius:50%; background:#44505f; box-shadow:0 0 0 3px rgba(255,255,255,.06); flex:0 0 auto; transition:.2s; }
+  .lamp.ok { background:var(--ok); box-shadow:0 0 12px var(--ok); }
+  .lamp.warn { background:var(--warn); box-shadow:0 0 12px var(--warn); }
+  .lamp.err { background:var(--err); box-shadow:0 0 12px var(--err); animation:pulse 1s infinite; }
+  .lamp.info { background:var(--info); box-shadow:0 0 12px var(--info); }
+  @keyframes pulse { 50% { opacity:.35; } }
+  #statusTitle { font-size:14px; font-weight:700; }
+  #statusMsg { font-size:12px; color:var(--muted); line-height:1.5; min-height:18px; margin-bottom:10px; }
+  #statusMsg.bad { color:#ff8d8d; }
+  .kv { display:grid; grid-template-columns:1fr auto; gap:3px 12px; font-size:12px; }
+  .kv span:nth-child(odd) { color:var(--muted); }
+  .kv span:nth-child(even) { font-variant-numeric:tabular-nums; text-align:right; }
+  .progress { height:5px; border-radius:3px; background:rgba(255,255,255,.1); margin-top:10px; overflow:hidden; display:none; }
+  .progress i { display:block; height:100%; width:0%; background:linear-gradient(90deg,#4aa8ff,#35d07f); transition:width .15s linear; }
+
+  #legend { left:16px; bottom:16px; padding:10px 14px; font-size:11.5px; color:var(--muted); line-height:1.7; }
+  .dot { display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:6px; vertical-align:middle; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<div id="control" class="panel">
+  <h1>登机桥自动对接仿真</h1>
+  <div class="sub">停机位 B12 · 乘客登机桥（PBB）运动学/碰撞解算</div>
+
+  <div class="field">
+    <label>机型</label>
+    <select id="aircraftType">
+      <option value="A320">空客 A320（窄体）</option>
+      <option value="B738">波音 737-800（窄体）</option>
+      <option value="B77W">波音 777-300ER（宽体）</option>
+      <option value="A388">空客 A380-800（超大型）</option>
+    </select>
+  </div>
+  <div class="field">
+    <label>对接舱门</label>
+    <select id="doorSelect"></select>
+  </div>
+
+  <div class="field">
+    <label>纵向停靠偏差（机头方向）<b><span id="xVal">0.0</span> m</b></label>
+    <input type="range" id="xShift" min="-12" max="12" step="0.5" value="0">
+  </div>
+  <div class="field">
+    <label>横向停靠偏差（廊桥方向）<b><span id="zVal">0.0</span> m</b></label>
+    <input type="range" id="zShift" min="-6" max="6" step="0.5" value="0">
+  </div>
+  <div class="field">
+    <label>机身偏航角 <b><span id="hVal">0.0</span>°</b></label>
+    <input type="range" id="heading" min="-30" max="30" step="1" value="0">
+  </div>
+
+  <div class="btns">
+    <button id="btnDock" class="primary">自动对接</button>
+    <button id="btnRetract">撤回廊桥</button>
+    <button id="btnArrival">重新引导入位</button>
+    <button id="btnReset" class="danger">复位</button>
+  </div>
+
+  <div class="field" style="margin-top:12px">
+    <label>视角</label>
+    <div class="btns views">
+      <button data-view="overview">全景</button>
+      <button data-view="bridge">廊桥</button>
+      <button data-view="door">舱门</button>
+      <button data-view="top">俯视</button>
+    </div>
+  </div>
+  <label class="toggle"><input type="checkbox" id="autoDock" checked> 参数变更后自动重新解算/对接</label>
+</div>
+
+<div id="status" class="panel">
+  <div class="status-head">
+    <span id="lamp" class="lamp info"></span>
+    <span id="statusTitle">待命中</span>
+  </div>
+  <div id="statusMsg">等待飞机入位。</div>
+  <div class="kv">
+    <span>运行阶段</span><span id="kvStage">—</span>
+    <span>水平旋转 yaw</span><span id="kvYaw">—</span>
+    <span>伸缩长度</span><span id="kvLen">—</span>
+    <span>根部高度</span><span id="kvH">—</span>
+    <span>通道俯仰</span><span id="kvPitch">—</span>
+    <span>接机舱偏转</span><span id="kvCab">—</span>
+    <span>舱门坐标</span><span id="kvDoor">—</span>
+  </div>
+  <div class="progress" id="progress"><i></i></div>
+</div>
+
+<div id="legend" class="panel">
+  <div><span class="dot" style="background:#d83b3b;opacity:.5"></span>机身安全带 / 发动机进气危险区</div>
+  <div><span class="dot" style="background:#f4c20d;opacity:.5"></span>舱门作业安全区</div>
+  <div><span class="dot" style="background:#f4c20d"></span>廊桥活动包线 / 机位标线</div>
+</div>
+
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
