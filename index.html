@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>G21 机场登机口 3D 调度仿真</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main class="layout">
+      <section class="viewport-card">
+        <canvas id="scene" aria-label="机场登机口三维场景"></canvas>
+        <div class="legend">
+          <span><i class="safe-dot"></i>安全对接区</span>
+          <span><i class="warn-dot"></i>廊桥运动轴</span>
+          <span><i class="danger-dot"></i>停机坪安全边界</span>
+        </div>
+      </section>
+
+      <aside class="panel">
+        <header>
+          <p class="eyebrow">AIRPORT GATE G21</p>
+          <h1>登机廊桥自动对接</h1>
+        </header>
+
+        <div class="status-card">
+          <span id="status-badge" class="badge idle">IDLE</span>
+          <strong id="status-text">系统初始化中</strong>
+          <ul id="reasons"></ul>
+        </div>
+
+        <label class="control">
+          <span>飞机型号</span>
+          <select id="model-select">
+            <option value="a320">A320 窄体机</option>
+            <option value="b737">B737-800 窄体机</option>
+            <option value="e175">E175 支线客机</option>
+            <option value="b777">B777-300ER 宽体机</option>
+          </select>
+        </label>
+
+        <label class="control">
+          <span>停靠 X 位置 <b id="position-x-value">0 m</b></span>
+          <input id="position-x" type="range" min="-12" max="12" step="1" value="0" />
+        </label>
+
+        <label class="control">
+          <span>停靠 Z 位置 <b id="position-z-value">10 m</b></span>
+          <input id="position-z" type="range" min="-20" max="20" step="1" value="10" />
+        </label>
+
+        <label class="checkbox">
+          <input id="auto-dock" type="checkbox" checked />
+          <span>飞机停稳后自动重新计算并对接</span>
+        </label>
+
+        <div class="actions">
+          <button id="dock-button" class="primary">重新对接</button>
+          <button id="retract-button">收回廊桥</button>
+          <button id="stop-button" class="danger">急停</button>
+        </div>
+
+        <section class="metrics">
+          <h2>廊桥姿态解算</h2>
+          <dl>
+            <div><dt>旋转角</dt><dd id="metric-yaw">--</dd></div>
+            <div><dt>水平伸缩</dt><dd id="metric-reach">--</dd></div>
+            <div><dt>舱门高度</dt><dd id="metric-height">--</dd></div>
+            <div><dt>通道坡度</dt><dd id="metric-slope">--</dd></div>
+            <div><dt>机身净距</dt><dd id="metric-clearance">--</dd></div>
+          </dl>
+        </section>
+
+        <section class="limits">
+          <h2>机械与安全约束</h2>
+          <ul>
+            <li>旋转角 ±125°，水平行程 9–36 m</li>
+            <li>对接舱门高度 2.8–5.2 m，最大坡度 10°</li>
+            <li>通道与机身最小净距 1.05 m，末端允许贴合</li>
+          </ul>
+        </section>
+      </aside>
+    </main>
+    <script type="module" src="./src/app.js"></script>
+  </body>
+</html>
